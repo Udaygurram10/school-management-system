@@ -1,17 +1,24 @@
 # Use Node.js as the base image
 FROM node:18
 
-# Set the working directory inside the container
+# Create app directory and set ownership
 WORKDIR /app
+RUN chown -R node:node /app
+
+# Switch to non-root user
+USER node
 
 # Copy package.json and package-lock.json files
-COPY package*.json ./
+COPY --chown=node:node package*.json ./
 
 # Install dependencies
 RUN npm install
 
 # Copy the rest of the application code
-COPY . .
+COPY --chown=node:node . .
+
+# Create and set permissions for .next directory
+RUN mkdir -p .next && chown -R node:node .next
 
 # Generate Database
 RUN npx prisma migrate dev --name init

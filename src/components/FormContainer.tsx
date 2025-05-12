@@ -1,6 +1,5 @@
 import prisma from "@/lib/prisma";
 import FormModal from "./FormModal";
-import { auth } from "@clerk/nextjs/server";
 
 export type FormContainerProps = {
   table:
@@ -19,14 +18,12 @@ export type FormContainerProps = {
   type: "create" | "update" | "delete";
   data?: any;
   id?: number | string;
+  role?: string;
+  userId?: string | null;
 };
 
-const FormContainer = async ({ table, type, data, id }: FormContainerProps) => {
+const FormContainer = async ({ table, type, data, id, role, userId }: FormContainerProps) => {
   let relatedData = {};
-
-  const { userId, sessionClaims } = auth();
-  const role = (sessionClaims?.metadata as { role?: string })?.role;
-  const currentUserId = userId;
 
   if (type !== "delete") {
     switch (table) {
@@ -63,7 +60,7 @@ const FormContainer = async ({ table, type, data, id }: FormContainerProps) => {
       case "exam":
         const examLessons = await prisma.lesson.findMany({
           where: {
-            ...(role === "teacher" ? { teacherId: currentUserId! } : {}),
+            ...(role === "teacher" ? { teacherId: userId! } : {}),
           },
           select: { id: true, name: true },
         });

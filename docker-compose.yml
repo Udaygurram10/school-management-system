@@ -16,10 +16,15 @@ services:
   app:
     build: .
     container_name: nextjs_app
+    user: "node"
     ports:
       - '3000:3000'
     environment:
-      - DATABASE_URL: postgresql://myuser:mypassword@[YOUR_SERVER_IP]:5432/mydb
+      - DATABASE_URL=postgresql://myuser:mypassword@postgress:5432/mydb
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
     depends_on:
       - postgres
 
