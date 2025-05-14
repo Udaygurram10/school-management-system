@@ -1,33 +1,25 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { authMiddleware } from "@clerk/nextjs";
 import { routeAccessMap } from "./lib/settings";
-import { NextResponse } from "next/server";
 
-const matchers = Object.keys(routeAccessMap).map((route) => ({
-  matcher: createRouteMatcher([route]),
-  allowedRoles: routeAccessMap[route],
-}));
+export default authMiddleware({
+  publicRoutes: ["/"],
+  afterAuth(auth, req) {
+    const role = auth.sessionClaims?.metadata?.role as string;
+    
+    if (!auth.userId && !auth.isPublicRoute) {
+      const signInUrl = new URL('/sign-in', req.url);
+      return Response.redirect(signInUrl);
+    }
 
-console.log(matchers);
-
-export default clerkMiddleware((auth, req) => {
-  // if (isProtectedRoute(req)) auth().protect()
-
-  const { sessionClaims } = auth();
-
-  const role = (sessionClaims?.metadata as { role?: string })?.role;
-
-  for (const { matcher, allowedRoles } of matchers) {
-    if (matcher(req) && !allowedRoles.includes(role!)) {
-      return NextResponse.redirect(new URL(`/${role}`, req.url));
+    for (const [route, allowedRoles] of Object.entries(routeAccessMap)) {
+      const pattern = new RegExp(route);
+      if (pattern.test(req.nextUrl.pathname) && !allowedRoles.includes(role)) {
+        return Response.redirect(new URL(`/${role}`, req.url));
+      }
     }
   }
 });
 
 export const config = {
-  matcher: [
-    // Skip Next.js internals and all static files, unless found in search params
-    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
-    // Always run for API routes
-    "/(api|trpc)(.*)",
-  ],
+  matcher: ["/((?!.+\\.[\\w]+$|_next).*)", "/", "/(api|trpc)(.*)"],
 };
