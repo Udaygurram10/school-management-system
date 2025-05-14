@@ -1,24 +1,28 @@
-import { authMiddleware } from "@clerk/nextjs";
-import { routeAccessMap } from "./lib/settings";
+import { ClerkMiddleware, getAuth, withClerkMiddleware } from '@clerk/nextjs/server';
+import { routeAccessMap } from './lib/settings';
+import { NextResponse } from 'next/server';
 
-export default authMiddleware({
-  publicRoutes: ["/"],
-  afterAuth(auth, req) {
-    const role = auth.sessionClaims?.metadata?.role as string;
-    
-    if (!auth.userId && !auth.isPublicRoute) {
-      const signInUrl = new URL('/sign-in', req.url);
-      return Response.redirect(signInUrl);
-    }
+const clerkMiddleware: ClerkMiddleware = async (request) => {
+  const auth = await getAuth(request);
 
-    for (const [route, allowedRoles] of Object.entries(routeAccessMap)) {
-      const pattern = new RegExp(route);
-      if (pattern.test(req.nextUrl.pathname) && !allowedRoles.includes(role)) {
-        return Response.redirect(new URL(`/${role}`, req.url));
-      }
+  if (!auth.userId && !request.nextUrl.pathname.startsWith('/sign-in')) {
+    const signInUrl = new URL('/sign-in', request.url);
+    return NextResponse.redirect(signInUrl);
+  }
+
+  const role = auth.sessionClaims?.metadata?.role as string;
+
+  for (const [route, allowedRoles] of Object.entries(routeAccessMap)) {
+    const pattern = new RegExp(route);
+    if (pattern.test(request.nextUrl.pathname) && !allowedRoles.includes(role)) {
+      return NextResponse.redirect(new URL(`/${role}`, request.url));
     }
   }
-});
+  
+  return NextResponse.next();
+};
+
+export default withClerkMiddleware(clerkMiddleware);
 
 export const config = {
   matcher: ["/((?!.+\\.[\\w]+$|_next).*)", "/", "/(api|trpc)(.*)"],
